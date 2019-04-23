@@ -76,6 +76,14 @@
       </modules>
     </profile>
 
+    <profile>
+      <id>archon</id>
+      <modules>
+        <module>v1_12_R1</module>
+        <module>v1_8_R3</module>
+      </modules>
+    </profile>
+
   </profiles>
 
 </project>

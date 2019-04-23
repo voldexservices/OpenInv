@@ -16,39 +16,33 @@
 
 package com.lishid.openinv.internal.v1_12_R1;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
-import java.util.List;
-
 import com.lishid.openinv.internal.ISpecialEnderChest;
-
+import net.minecraft.server.v1_12_R1.*;
+import org.bukkit.Location;
+import org.bukkit.craftbukkit.v1_12_R1.entity.CraftHumanEntity;
+import org.bukkit.craftbukkit.v1_12_R1.inventory.CraftInventory;
+import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryHolder;
 
-import net.minecraft.server.v1_12_R1.EntityPlayer;
-import net.minecraft.server.v1_12_R1.IInventory;
-import net.minecraft.server.v1_12_R1.InventoryEnderChest;
-import net.minecraft.server.v1_12_R1.InventorySubcontainer;
-import net.minecraft.server.v1_12_R1.ItemStack;
+import java.util.List;
 
-import org.bukkit.craftbukkit.v1_12_R1.inventory.CraftInventory;
+public class SpecialEnderChest implements IInventory, ISpecialEnderChest {
 
-public class SpecialEnderChest extends InventorySubcontainer
-        implements IInventory, ISpecialEnderChest {
-
+    private EntityPlayer owner;
+    private String displayName;
+    private NonNullList<ItemStack> items;
     private final InventoryEnderChest enderChest;
     private final CraftInventory inventory = new CraftInventory(this);
     private boolean playerOnline;
 
     public SpecialEnderChest(final Player player, final Boolean online) {
-        super(PlayerDataManager.getHandle(player).getEnderChest().getName(),
-                PlayerDataManager.getHandle(player).getEnderChest().hasCustomName(),
-                PlayerDataManager.getHandle(player).getEnderChest().getSize());
+        this.owner = PlayerDataManager.getHandle(player);
+        this.displayName = this.owner.getEnderChest().getName();
         this.playerOnline = online;
         EntityPlayer nmsPlayer = PlayerDataManager.getHandle(player);
         this.enderChest = nmsPlayer.getEnderChest();
-        this.bukkitOwner = nmsPlayer.getBukkitEntity();
-        this.setItemLists(this, this.enderChest.getContents());
     }
 
     @Override
@@ -61,22 +55,6 @@ public class SpecialEnderChest extends InventorySubcontainer
         return !this.getViewers().isEmpty();
     }
 
-    private void setItemLists(final InventorySubcontainer subcontainer,
-            final List<ItemStack> list) {
-        try {
-            // Prepare to remove final modifier
-            Field modifiers = Field.class.getDeclaredField("modifiers");
-            modifiers.setAccessible(true);
-            // Access and replace main inventory array
-            Field field = InventorySubcontainer.class.getField("items");
-            modifiers.setInt(field, field.getModifiers() & ~Modifier.FINAL);
-            field.set(subcontainer, list);
-        } catch (NoSuchFieldException | SecurityException | IllegalArgumentException
-                | IllegalAccessException e) {
-            e.printStackTrace();
-        }
-    }
-
     @Override
     public void setPlayerOffline() {
         this.playerOnline = false;
@@ -86,18 +64,169 @@ public class SpecialEnderChest extends InventorySubcontainer
     public void setPlayerOnline(final Player player) {
         if (!this.playerOnline) {
             try {
-                EntityPlayer nmsPlayer = PlayerDataManager.getHandle(player);
-                this.bukkitOwner = nmsPlayer.getBukkitEntity();
-                this.setItemLists(nmsPlayer.getEnderChest(), this.items);
-            } catch (Exception e) {}
+                this.owner = PlayerDataManager.getHandle(player);
+                InventoryEnderChest enderChest = owner.getEnderChest();
+                for (int i = 0; i < enderChest.getSize(); ++i) {
+                    enderChest.setItem(i, this.items.get(i));
+                }
+                this.items = enderChest.items;
+            } catch (Exception ignored) {
+            }
             this.playerOnline = true;
         }
     }
 
     @Override
     public void update() {
-        super.update();
         this.enderChest.update();
+        this.owner.getEnderChest().update();
     }
 
+    public List<ItemStack> getContents() {
+        return this.items;
+    }
+
+    @Override
+    public int getSize() {
+        return this.owner.getEnderChest().getSize();
+    }
+
+    /**
+     * @return isEmpty()
+     */
+    @Override
+    public boolean x_() {
+        for (ItemStack itemstack : this.items) {
+            if (!itemstack.isEmpty()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    @Override
+    public ItemStack getItem(int i) {
+        return i >= 0 && i < this.items.size() ? this.items.get(i) : ItemStack.a;
+    }
+
+    @Override
+    public ItemStack splitStack(int i, int j) {
+        ItemStack itemstack = ContainerUtil.a(this.items, i, j);
+        if (!itemstack.isEmpty()) {
+            this.update();
+        }
+
+        return itemstack;
+    }
+
+    @Override
+    public ItemStack splitWithoutUpdate(int i) {
+        ItemStack itemstack = this.items.get(i);
+        if (itemstack.isEmpty()) {
+            return ItemStack.a;
+        } else {
+            this.items.set(i, ItemStack.a);
+            return itemstack;
+        }
+    }
+
+    @Override
+    public void setItem(int i, ItemStack itemStack) {
+        this.items.set(i, itemStack);
+        if (!itemStack.isEmpty() && itemStack.getCount() > this.getMaxStackSize()) {
+            itemStack.setCount(this.getMaxStackSize());
+        }
+
+        this.update();
+    }
+
+    @Override
+    public int getMaxStackSize() {
+        return 64;
+    }
+
+    @Override
+    public boolean a(EntityHuman entityHuman) {
+        return true;
+    }
+
+    @Override
+    public void startOpen(EntityHuman entityHuman) {
+
+    }
+
+    @Override
+    public void closeContainer(EntityHuman entityHuman) {
+
+    }
+
+    @Override
+    public boolean b(int i, ItemStack itemStack) {
+        return true;
+    }
+
+    @Override
+    public int getProperty(int i) {
+        return 0;
+    }
+
+    @Override
+    public void setProperty(int i, int i1) {
+    }
+
+    @Override
+    public int h() {
+        return 0;
+    }
+
+    @Override
+    public void clear() {
+        this.items.clear();
+    }
+
+    @Override
+    public void onOpen(CraftHumanEntity who) {
+        this.owner.getEnderChest().onOpen(who);
+    }
+
+    @Override
+    public void onClose(CraftHumanEntity who) {
+        this.owner.getEnderChest().onClose(who);
+    }
+
+    @Override
+    public List<HumanEntity> getViewers() {
+        return this.owner.getEnderChest().getViewers();
+    }
+
+    @Override
+    public InventoryHolder getOwner() {
+        return this.owner.getEnderChest().getOwner();
+    }
+
+    @Override
+    public void setMaxStackSize(int i) {
+        this.owner.getEnderChest().setMaxStackSize(i);
+    }
+
+    @Override
+    public Location getLocation() {
+        return null;
+    }
+
+    @Override
+    public String getName() {
+        return this.displayName;
+    }
+
+    @Override
+    public boolean hasCustomName() {
+        return false;
+    }
+
+    @Override
+    public IChatBaseComponent getScoreboardDisplayName() {
+        return null;
+    }
 }
