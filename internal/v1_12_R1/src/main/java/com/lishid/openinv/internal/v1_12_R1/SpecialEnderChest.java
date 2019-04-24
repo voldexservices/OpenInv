@@ -40,6 +40,7 @@ public class SpecialEnderChest implements IInventory, ISpecialEnderChest {
     public SpecialEnderChest(final Player player, final Boolean online) {
         this.owner = PlayerDataManager.getHandle(player);
         this.displayName = this.owner.getEnderChest().getName();
+        this.items = this.owner.getEnderChest().items;
         this.playerOnline = online;
         EntityPlayer nmsPlayer = PlayerDataManager.getHandle(player);
         this.enderChest = nmsPlayer.getEnderChest();
